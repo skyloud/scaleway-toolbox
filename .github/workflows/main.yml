@@ -1,0 +1,52 @@
+name: Build
+
+on:
+  release:
+    types: [published]
+  push:
+    tags:
+      - '*'
+  schedule:
+    - cron: '30 5 * * *'
+
+env:
+  IMAGE_TAG: ${{ github.event.release.tag_name }}
+
+jobs:
+  build-and-push-image:
+    runs-on: ubuntu-latest
+    steps:
+      -
+        name: Checkout
+        uses: actions/checkout@v3
+      -
+        name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
+      -
+        name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+      -
+        name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v4
+        with:
+          images: skyloud/scaleway-toolbox
+      -
+        name: Login to DockerHub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+      -
+        name: Build and push
+        uses: docker/build-push-action@v3
+        id: docker_build
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+      -
+        name: Image digest
+        run: echo ${{ steps.docker_build.outputs.digest }}
