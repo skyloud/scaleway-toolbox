@@ -59,4 +59,9 @@ done
 echo "🎯 Removing old unused snapshots"
 mc rm --recursive --force s3/$BUCKET_NAME --older-than 7d || true
 
+if [[ ! -z "$HEARTBEAT_URL" ]]; then
+  echo "💙 Sending heartbeat to url"
+  curl --silent --output /dev/null $HEARTBEAT_URL
+fi
+
 echo "✅ Done !"
