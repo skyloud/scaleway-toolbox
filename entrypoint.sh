@@ -7,6 +7,13 @@ if [[ -z "$BUCKET_NAME" ]]; then
   exit 1
 fi
 
+
+if [[ -z "$SCW_DEFAULT_REGION" ]]; then
+  echo "❌ Default region not specified use fr-par"
+  SCW_DEFAULT_REGION="fr-par"
+  export SCW_DEFAULT_REGION
+fi
+
 echo "👉 Init scw cli..."
 scw init project-id=$SCW_PROJECT_ID \
   organization-id=$SCW_ORGANIZATION_ID \
@@ -17,7 +24,7 @@ scw init project-id=$SCW_PROJECT_ID \
   send-telemetry=false >/dev/null 2>&1
 
 echo "👉 Init mc cli..."
-mc alias set s3 https://s3.fr-par.scw.cloud $SCW_ACCESS_KEY $SCW_SECRET_KEY --api S3v4 >/dev/null 2>&1
+mc alias set s3 https://s3.$SCW_DEFAULT_REGION.scw.cloud $SCW_ACCESS_KEY $SCW_SECRET_KEY --api S3v4 >/dev/null 2>&1
 
 echo "✅ Environment ready !"
 
