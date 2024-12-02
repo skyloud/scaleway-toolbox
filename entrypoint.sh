@@ -11,7 +11,6 @@ fi
 if [[ -z "$SCW_DEFAULT_REGION" ]]; then
   echo "❌ Default region not specified use fr-par"
   SCW_DEFAULT_REGION="fr-par"
-  export SCW_DEFAULT_REGION
 fi
 
 echo "👉 Init scw cli..."
