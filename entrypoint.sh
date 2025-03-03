@@ -33,10 +33,11 @@ function create_snapshot_from_volume_id() {
   echo "👀 Creating snapshot \"$SNAPSHOT_NAME\" now"
   SNAPSHOT_ID=$(scw instance snapshot create -o json tags.0=to-delete name=$SNAPSHOT_NAME volume-id=$1 | jq -r '.snapshot.id')
   echo "✨ Snapshot \"$SNAPSHOT_ID\" created. Waiting to become available."
-  scw instance snapshot wait $SNAPSHOT_ID >/dev/null 2>&1
+  scw instance snapshot wait $SNAPSHOT_ID
   echo "✅ Snapshot \"$SNAPSHOT_ID\" is available. Exporting to bucket s3..."
   S3_OBJECT_KEY="$SCW_DEFAULT_ZONE/$SERVER_NAME/$(date +'%Y')/$(date +'%m')/$(date +'%d')/$SNAPSHOT_NAME.qcow"
-  scw instance snapshot export snapshot-id=$SNAPSHOT_ID bucket=$BUCKET_NAME key=$S3_OBJECT_KEY >/dev/null 2>&1
+  echo "👉 Snapshot \"$SNAPSHOT_ID\" will be exported here : \"$BUCKET_NAME/$S3_OBJECT_KEY\""
+  scw instance snapshot export snapshot-id=$SNAPSHOT_ID bucket=$BUCKET_NAME key=$S3_OBJECT_KEY
   echo "🔐 Snapshot export s3 task created \"$S3_OBJECT_KEY\""
 }
 
