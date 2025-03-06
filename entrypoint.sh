@@ -26,6 +26,32 @@ function delete_snapshot_id() {
   echo "⚠️ Snapshot \"$1\" have been deleted"
 }
 
+function export_snapshot_with_retry() {
+  local snapshot_id="$1"
+  local bucket_name="$2"
+  local object_key="$3"
+
+  local max_attempts=15
+  local attempts=0
+  local sleep_seconds=60
+
+  while true; do
+    echo "🔄 Attempting export of snapshot \"$snapshot_id\" (attempt $((attempts+1))/$max_attempts)"
+    if scw instance snapshot export snapshot-id=$snapshot_id bucket=$bucket_name key=$object_key; then
+      echo "🔐 Snapshot export s3 task created \"$object_key\""
+      break
+    else
+      attempts=$((attempts+1))
+      if [ $attempts -ge $max_attempts ]; then
+        echo "❌ Snapshot export failed after $max_attempts attempts. Exiting."
+        exit 1
+      fi
+      echo "🐌 Snapshot export failed. Retrying in $sleep_seconds seconds..."
+      sleep $sleep_seconds
+    fi
+  done
+}
+
 function create_snapshot_from_volume_id() {
   SERVER_NAME=$(scw instance volume get $1 -o json | jq -r .volume.server.name)
   echo "👉 Selecting volume \"$1\" with name \"$SERVER_NAME\""
@@ -37,8 +63,8 @@ function create_snapshot_from_volume_id() {
   echo "✅ Snapshot \"$SNAPSHOT_ID\" is available. Exporting to bucket s3..."
   S3_OBJECT_KEY="$SCW_DEFAULT_ZONE/$SERVER_NAME/$(date +'%Y')/$(date +'%m')/$(date +'%d')/$SNAPSHOT_NAME.qcow"
   echo "👉 Snapshot \"$SNAPSHOT_ID\" will be exported here : \"$BUCKET_NAME/$S3_OBJECT_KEY\""
-  scw instance snapshot export snapshot-id=$SNAPSHOT_ID bucket=$BUCKET_NAME key=$S3_OBJECT_KEY
-  echo "🔐 Snapshot export s3 task created \"$S3_OBJECT_KEY\""
+  export_snapshot_with_retry "$SNAPSHOT_ID" "$BUCKET_NAME" "$S3_OBJECT_KEY"
+  echo "✅ Export volume task is now pending"
 }
 
 echo "🎯 Deleting obsolete snapshots"
