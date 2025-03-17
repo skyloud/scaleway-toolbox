@@ -31,7 +31,7 @@ function export_snapshot_with_retry() {
   local bucket_name="$2"
   local object_key="$3"
 
-  local max_attempts=15
+  local max_attempts=50
   local attempts=0
   local sleep_seconds=60
 
