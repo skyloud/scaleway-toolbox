@@ -37,7 +37,7 @@ function export_snapshot_with_retry() {
 
   while true; do
     echo "🔄 Attempting export of snapshot \"$snapshot_id\" (attempt $((attempts+1))/$max_attempts)"
-    if scw instance snapshot export snapshot-id=$snapshot_id bucket=$bucket_name key=$object_key; then
+    if scw $SNAPSHOT_TYPE snapshot export snapshot-id=$snapshot_id bucket=$bucket_name key=$object_key; then
       echo "🔐 Snapshot export s3 task created \"$object_key\""
       break
     else
@@ -53,15 +53,18 @@ function export_snapshot_with_retry() {
 }
 
 function create_snapshot_from_volume_id() {
-  SERVER_NAME=$(scw instance volume get $1 -o json | jq -r .volume.server.name)
-  echo "👉 Selecting volume \"$1\" with name \"$SERVER_NAME\""
-  SNAPSHOT_NAME="snp_${SERVER_NAME}_$(date +'%d_%m_%Y__%H_%M_%S')"
-  echo "👀 Creating snapshot \"$SNAPSHOT_NAME\" now"
-  SNAPSHOT_ID=$(scw instance snapshot create -o json tags.0=to-delete name=$SNAPSHOT_NAME volume-id=$1 | jq -r '.snapshot.id')
+  local SERVER_NAME=$1
+  local SNAPSHOT_TYPE=$2
+  local VOLUME_ID=$3
+
+  echo "👉 Selecting volume \"$VOLUME_ID\" with name \"$SERVER_NAME\""
+  SNAPSHOT_NAME="snp_${SNAPSHOT_TYPE}_${SERVER_NAME}_$(date +'%d_%m_%Y__%H_%M_%S')"
+  echo "👀 Creating snapshot \"$SNAPSHOT_NAME\" of type \"$SNAPSHOT_TYPE\" now"
+  SNAPSHOT_ID=$(scw $SNAPSHOT_TYPE snapshot create -o json tags.0=to-delete name=$SNAPSHOT_NAME volume-id=$VOLUME_ID | jq -r '.snapshot.id')
   echo "✨ Snapshot \"$SNAPSHOT_ID\" created. Waiting to become available."
-  scw instance snapshot wait $SNAPSHOT_ID
+  scw $SNAPSHOT_TYPE snapshot wait $SNAPSHOT_ID
   echo "✅ Snapshot \"$SNAPSHOT_ID\" is available. Exporting to bucket s3..."
-  S3_OBJECT_KEY="$SCW_DEFAULT_ZONE/$SERVER_NAME/$(date +'%Y')/$(date +'%m')/$(date +'%d')/$SNAPSHOT_NAME.qcow"
+  S3_OBJECT_KEY="$SCW_DEFAULT_ZONE/$SERVER_NAME/$(date +'%Y')/$(date +'%m')/$(date +'%d')/$VOLUME_ID/$SNAPSHOT_NAME.qcow"
   echo "👉 Snapshot \"$SNAPSHOT_ID\" will be exported here : \"$BUCKET_NAME/$S3_OBJECT_KEY\""
   export_snapshot_with_retry "$SNAPSHOT_ID" "$BUCKET_NAME" "$S3_OBJECT_KEY"
   echo "✅ Export volume task is now pending"
@@ -77,9 +80,18 @@ done
 echo "🎯 Creating snapshots based on server list"
 
 for tag in $(echo $TAG_SELECTOR | tr ',' ' '); do
-    for vid in $(scw instance server list -o json state=running tags.0=$tag | jq -r '.[].volumes[].id'); do
-        create_snapshot_from_volume_id $vid
+  for instance_b in $(scw instance server list -o json state=running tags.0=$tag | jq -r '.[] | @base64'); do
+    instance=$(printf '%s' "$instance_b" | base64 --decode)
+    instance_name=$(jq -r '.name' <<<"$instance")
+
+    for volume_b in $(jq -r '.volumes[] | @base64' <<<"$instance"); do
+      volume=$(printf '%s' "$volume_b" | base64 --decode)
+      volume_id=$(jq -r '.id' <<<"$volume")
+      snapshot_type=$(jq -r 'if .server.id? then "instance" else "block" end' <<<"$volume")  
+      
+      create_snapshot_from_volume_id "$instance_name" "$snapshot_type" "$volume_id"
     done
+  done
 done
 
 
