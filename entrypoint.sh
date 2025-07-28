@@ -30,14 +30,20 @@ function export_snapshot_with_retry() {
   local snapshot_id="$1"
   local bucket_name="$2"
   local object_key="$3"
+  local snapshot_type="$4"
 
   local max_attempts=50
   local attempts=0
   local sleep_seconds=60
 
+  local scw_command="export-to-object-storage"
+  if [[ "$snapshot_type" == "instance" ]]; then
+    scw_command="export"
+  fi
+
   while true; do
     echo "🔄 Attempting export of snapshot \"$snapshot_id\" (attempt $((attempts+1))/$max_attempts)"
-    if scw $SNAPSHOT_TYPE snapshot export snapshot-id=$snapshot_id bucket=$bucket_name key=$object_key; then
+    if scw $snapshot_type snapshot $scw_command snapshot-id=$snapshot_id bucket=$bucket_name key=$object_key; then
       echo "🔐 Snapshot export s3 task created \"$object_key\""
       break
     else
@@ -66,7 +72,7 @@ function create_snapshot_from_volume_id() {
   echo "✅ Snapshot \"$SNAPSHOT_ID\" is available. Exporting to bucket s3..."
   S3_OBJECT_KEY="$SCW_DEFAULT_ZONE/$SERVER_NAME/$(date +'%Y')/$(date +'%m')/$(date +'%d')/$VOLUME_ID/$SNAPSHOT_NAME.qcow"
   echo "👉 Snapshot \"$SNAPSHOT_ID\" will be exported here : \"$BUCKET_NAME/$S3_OBJECT_KEY\""
-  export_snapshot_with_retry "$SNAPSHOT_ID" "$BUCKET_NAME" "$S3_OBJECT_KEY"
+  export_snapshot_with_retry "$SNAPSHOT_ID" "$BUCKET_NAME" "$S3_OBJECT_KEY" "$SNAPSHOT_TYPE"
   echo "✅ Export volume task is now pending"
 }
 
