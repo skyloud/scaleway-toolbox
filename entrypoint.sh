@@ -60,7 +60,7 @@ function create_snapshot_from_volume_id() {
   echo "👉 Selecting volume \"$VOLUME_ID\" with name \"$SERVER_NAME\""
   SNAPSHOT_NAME="snp_${SNAPSHOT_TYPE}_${SERVER_NAME}_$(date +'%d_%m_%Y__%H_%M_%S')"
   echo "👀 Creating snapshot \"$SNAPSHOT_NAME\" of type \"$SNAPSHOT_TYPE\" now"
-  SNAPSHOT_ID=$(scw $SNAPSHOT_TYPE snapshot create -o json tags.0=to-delete name=$SNAPSHOT_NAME volume-id=$VOLUME_ID | jq -r '.snapshot.id')
+  SNAPSHOT_ID=$(scw $SNAPSHOT_TYPE snapshot create -o json tags.0=to-delete name=$SNAPSHOT_NAME volume-id=$VOLUME_ID | jq -r 'if has("snapshot") then .snapshot.id else .id end')
   echo "✨ Snapshot \"$SNAPSHOT_ID\" created. Waiting to become available."
   scw $SNAPSHOT_TYPE snapshot wait $SNAPSHOT_ID
   echo "✅ Snapshot \"$SNAPSHOT_ID\" is available. Exporting to bucket s3..."
